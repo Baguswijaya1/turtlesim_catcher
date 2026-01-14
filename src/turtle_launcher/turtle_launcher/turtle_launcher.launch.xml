@@ -1,0 +1,4 @@
+<launch>
+    <node pkg='turtle_controller' exec='controller'/>
+    <node pkg='turtlesim' exec='turtlesim_node'/>
+</launch>
