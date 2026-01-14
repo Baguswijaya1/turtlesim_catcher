@@ -5,10 +5,10 @@ from turtlesim.srv import Spawn, Kill
 from geometry_msgs.msg import Twist
 import numpy as np
 
+# change these values to set turtle's sensitivity
 Kp_linear = 2
 Kp_angular = 4
 catch_distance = 0.5
-# first_try = True
 
 class Controller(Node):
     def __init__(self):
@@ -121,9 +121,6 @@ class Controller(Node):
             turtle_killed += 1
         except Exception as e:
             self.get_logger().info(f'spawn service failed {e}')
-
-        
-        
 
 def main(args=None):
     rclpy.init(args=args)
