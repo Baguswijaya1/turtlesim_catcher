@@ -1,5 +1,5 @@
 # turtlesim_catcher
-https://github.com/user-attachments/assets/214da79a-dc1c-464e-ab1d-2cf25684cc93
+https://github.com/user-attachments/assets/aba21bf9-43cf-443d-972d-3d4bed937697
 
 This project simulates a scenario where a turtleking catches and eliminates another turtle. By using ROS2 and turtlesim packages, fundamentals of ROS2 and basic control system are applied.
 
@@ -20,8 +20,7 @@ This project simulates a scenario where a turtleking catches and eliminates anot
    ros2 launch turtle_launcher turtle_launcher.launch.xml
    ```
    
-## Repository Explanation
+## About this Repo
 This project consist of 2 packages (excepting launch package)
-* turtle_controller: controls turtle king's behavior. Consist of simple P controller, communication via topics, and service client to spawn and catch other turtles.
+* turtle_controller: controls turtle king's behavior. Consist of simple PID controller, communication via topics, and service client to spawn and catch other turtles.
 * spawner : service server which provides ROS2 service to spawn and disappear catched turtles.
-Turtlesim node, which installed together once you installed ROS2, is also used to make the platform.
