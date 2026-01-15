@@ -6,8 +6,14 @@ from geometry_msgs.msg import Twist
 import numpy as np
 
 # change these values to set turtle's sensitivity
-Kp_linear = 2
-Kp_angular = 4
+Kp_linear = 4
+Ki_linear = 1
+Kd_linear = 1
+
+Kp_angular = 15
+Ki_angular = 0.4
+Kd_angular = 6
+
 catch_distance = 0.5
 
 class Controller(Node):
@@ -20,6 +26,10 @@ class Controller(Node):
         self.angular_vel = 0.
         self.get_logger().info('controller started')
         self.first_try = True
+
+
+        self.dt = 0.4
+        self.t = 0
 
         self.get_pose_sub = self.create_subscription(
             msg_type=Pose,
@@ -61,18 +71,42 @@ class Controller(Node):
         self.angular_vel = msg.angular_velocity
 
     def move(self, destination):
+        # linear errors
         error_x = destination.x - self.x
         error_y = destination.y - self.y
         error_linear = np.sqrt(error_x**2 + error_y**2)
+        
+        if self.t == 0:
+            self.past_error_linear = 0
+            self.e_int_linear = 0
+            self.e_dot_linear = 0
 
+            self.past_error_angular = 0
+            self.e_int_angular = 0
+            self.e_dot_angular = 0
+        
+        e_int_linear = self.past_error_linear + (self.past_error_linear + error_linear) / 2 * self.dt
+        e_dot_linear = (error_linear - self.past_error_linear) / self.dt
+        
+        # angular errors
         desired_angle = np.arctan2(error_y, error_x)
         error_angular = desired_angle - self.yaw
-        error_angular = np.arctan2(np.sin(error_angular), np.cos(error_angular)) # normalize to [-pi, pi]
+        error_angular = np.arctan2(np.sin(error_angular), np.cos(error_angular))
 
+        
+        e_int_angular = self.past_error_angular + (self.past_error_angular + error_angular) / 2 * self.dt
+        e_dot_angular = (error_angular - self.past_error_angular) / self.dt
 
+        # Implement PID
         msg = Twist()
-        msg.linear.x = Kp_linear * error_linear
-        msg.angular.z = Kp_angular * error_angular
+        msg.linear.x = Kp_linear * error_linear + Ki_linear * e_int_linear + Kd_linear * e_dot_linear
+        msg.angular.z = Kp_angular * error_angular + Ki_angular  * e_int_angular + Kd_angular * e_dot_angular
+
+        self.past_error_linear = error_linear
+        self.past_error_angular = error_angular
+        self.e_int_linear = e_int_linear
+        self.e_int_angular = e_int_angular
+        self.t += self.dt
 
         self.move_pub.publish(msg)
 
