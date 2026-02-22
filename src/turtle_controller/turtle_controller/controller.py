@@ -7,12 +7,12 @@ import numpy as np
 
 # change these values to set turtle's sensitivity
 Kp_linear = 4
-Ki_linear = 1
-Kd_linear = 1
+Ki_linear = 0.01
+Kd_linear = 2
 
-Kp_angular = 15
-Ki_angular = 0.4
-Kd_angular = 6
+Kp_angular = 12
+Ki_angular = 0.2
+Kd_angular = 7
 
 catch_distance = 0.5
 
@@ -79,13 +79,15 @@ class Controller(Node):
         if self.t == 0:
             self.past_error_linear = 0
             self.e_int_linear = 0
+            self.past_e_int_linear = 0
             self.e_dot_linear = 0
 
             self.past_error_angular = 0
             self.e_int_angular = 0
+            self.past_e_int_angular = 0
             self.e_dot_angular = 0
         
-        e_int_linear = self.past_error_linear + (self.past_error_linear + error_linear) / 2 * self.dt
+        e_int_linear = self.past_e_int_linear + (self.past_error_linear + error_linear) / 2 * self.dt
         e_dot_linear = (error_linear - self.past_error_linear) / self.dt
         
         # angular errors
@@ -94,7 +96,7 @@ class Controller(Node):
         error_angular = np.arctan2(np.sin(error_angular), np.cos(error_angular))
 
         
-        e_int_angular = self.past_error_angular + (self.past_error_angular + error_angular) / 2 * self.dt
+        e_int_angular = self.past_e_int_angular + (self.past_error_angular + error_angular) / 2 * self.dt
         e_dot_angular = (error_angular - self.past_error_angular) / self.dt
 
         # Implement PID
@@ -104,8 +106,8 @@ class Controller(Node):
 
         self.past_error_linear = error_linear
         self.past_error_angular = error_angular
-        self.e_int_linear = e_int_linear
-        self.e_int_angular = e_int_angular
+        self.past_e_int_linear = e_int_linear
+        self.past_e_int_angular = e_int_angular
         self.t += self.dt
 
         self.move_pub.publish(msg)
@@ -113,6 +115,8 @@ class Controller(Node):
         if error_linear <= catch_distance:
             self.get_logger().info('caught newTurtle')
             self.kill('newTurtle')
+            self.past_e_int_linear = 0;
+            self.past_e_int_angular = 0;
 
     def kill(self, turtle_name):
         while not self.kill_client.wait_for_service(timeout_sec=1.0):
