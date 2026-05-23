@@ -14,10 +14,10 @@ class Spawner_server(Node):
         )
 
     def spawn(self, request:Spawn.Request, response:Spawn.Response):
-        response.name = 'newTurtle'
+        response.name = request.name
         self.get_logger().info(f'new turtle sawned at x={request.x} y={request.y}')
         return response
-
+    
     def kill(self, request:Kill.Request):
         request.name = 'newTurtle'
 

@@ -4,15 +4,16 @@ from turtlesim.msg import Pose
 from turtlesim.srv import Spawn, Kill
 from geometry_msgs.msg import Twist
 import numpy as np
+from . import avoidance
 
 # change these values to set turtle's sensitivity
-Kp_linear = 4
-Ki_linear = 0.01
-Kd_linear = 2
+Kp_linear = 2
+Ki_linear = 0
+Kd_linear = 0.5
 
-Kp_angular = 12
-Ki_angular = 0.2
-Kd_angular = 7
+Kp_angular = 5
+Ki_angular = 0.05
+Kd_angular = 2
 
 catch_distance = 0.5
 
@@ -26,11 +27,21 @@ class Controller(Node):
         self.angular_vel = 0.
         self.get_logger().info('controller started')
         self.first_try = True
+        self.kill_count = 0
 
-
+        # time features
         self.dt = 0.4
         self.t = 0
 
+        # sensing features
+        self.sense_radius = 5
+        self.avoid_radius = 1
+        self.collision_range = 0.5
+
+        self.repforce = 0
+        self.repangle = 0
+
+        # get self pose
         self.get_pose_sub = self.create_subscription(
             msg_type=Pose,
             topic='/turtle1/pose',
@@ -38,10 +49,19 @@ class Controller(Node):
             qos_profile=10
         )
 
+        # get destination
         self.get_destination_sub = self.create_subscription(
             msg_type=Pose,
             topic = '/newTurtle/pose',
             callback=self.move,
+            qos_profile=10
+        )
+
+        # sense obstacle
+        self.get_obstaclepos_sub = self.create_subscription(
+            msg_type=Pose,
+            topic='/obstacle/pose',
+            callback=self.obstacle_subs,
             qos_profile=10
         )
 
@@ -61,6 +81,7 @@ class Controller(Node):
 
         if self.first_try:
             self.autoSpawn()
+            self.spawn_obs()
             self.first_try = False
 
     def get_pose(self, msg):
@@ -72,16 +93,17 @@ class Controller(Node):
 
     def move(self, destination):
         # linear errors
-        error_x = destination.x - self.x
-        error_y = destination.y - self.y
-        error_linear = np.sqrt(error_x**2 + error_y**2)
+        error_linear, error_angular = avoidance.sense(self.x, self.y, destination.x, destination.y, self.yaw)
+        error_linear += self.repforce
+        error_angular += self.repangle
+        
         
         if self.t == 0:
             self.past_error_linear = 0
             self.e_int_linear = 0
             self.past_e_int_linear = 0
             self.e_dot_linear = 0
-
+ 
             self.past_error_angular = 0
             self.e_int_angular = 0
             self.past_e_int_angular = 0
@@ -89,34 +111,42 @@ class Controller(Node):
         
         e_int_linear = self.past_e_int_linear + (self.past_error_linear + error_linear) / 2 * self.dt
         e_dot_linear = (error_linear - self.past_error_linear) / self.dt
-        
-        # angular errors
-        desired_angle = np.arctan2(error_y, error_x)
-        error_angular = desired_angle - self.yaw
-        error_angular = np.arctan2(np.sin(error_angular), np.cos(error_angular))
-
-        
+              
         e_int_angular = self.past_e_int_angular + (self.past_error_angular + error_angular) / 2 * self.dt
         e_dot_angular = (error_angular - self.past_error_angular) / self.dt
 
-        # Implement PID
-        msg = Twist()
-        msg.linear.x = Kp_linear * error_linear + Ki_linear * e_int_linear + Kd_linear * e_dot_linear
-        msg.angular.z = Kp_angular * error_angular + Ki_angular  * e_int_angular + Kd_angular * e_dot_angular
+        # Implement PID for attractive force
+        self.linear_vel = Kp_linear * error_linear + Ki_linear * e_int_linear + Kd_linear * e_dot_linear
+        self.angular_vel = Kp_angular * error_angular + Ki_angular  * e_int_angular + Kd_angular * e_dot_angular
 
+        # update time
         self.past_error_linear = error_linear
         self.past_error_angular = error_angular
         self.past_e_int_linear = e_int_linear
         self.past_e_int_angular = e_int_angular
         self.t += self.dt
 
+        # publish linear and angular velocity
+        msg = Twist()
+        msg.linear.x = self.linear_vel
+        msg.angular.z = self.angular_vel
         self.move_pub.publish(msg)
 
         if error_linear <= catch_distance:
             self.get_logger().info('caught newTurtle')
             self.kill('newTurtle')
+            self.kill_count += 1
+            if self.kill_count % 10 == 0:
+                self.spawn_obs()
             self.past_e_int_linear = 0;
             self.past_e_int_angular = 0;
+
+    def obstacle_subs(self, msg):
+        obsX = msg.x
+        obsY = msg.y
+        self.repforce, self.repangle, obsdist = avoidance.get_avoidance_vector(self.x, self.y, obsX, obsY, self.yaw, self.avoid_radius, 1)
+        if obsdist < self.collision_range:
+            self.get_logger().warn("crashed an obstacle!")
 
     def kill(self, turtle_name):
         while not self.kill_client.wait_for_service(timeout_sec=1.0):
@@ -145,7 +175,6 @@ class Controller(Node):
         request.x =  np.random.uniform(1.,10.)
         request.y =  np.random.uniform(1.,10.)
         request.theta = np.random.uniform(0., 3.14)
-        request.name = 'newTurtle'
 
         future = self.spawn_client.call_async(request)
 
@@ -159,6 +188,21 @@ class Controller(Node):
             turtle_killed += 1
         except Exception as e:
             self.get_logger().info(f'spawn service failed {e}')
+
+    def spawn_obs(self):
+        while not self.spawn_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('spawn service not available')
+            
+        request = Spawn.Request()
+        request.name = 'obstacle'
+        request.x =  np.random.uniform(3.,7.)
+        request.y =  np.random.uniform(3.,7.)
+        request.theta = np.random.uniform(0., 3.14)
+
+        future = self.spawn_client.call_async(request)
+
+        future = self.spawn_client.call_async(request)
+        future.add_done_callback(self.callback_spawn)
 
 def main(args=None):
     rclpy.init(args=args)

@@ -1,7 +1,7 @@
 # turtlesim_catcher
 https://github.com/user-attachments/assets/aba21bf9-43cf-443d-972d-3d4bed937697
 
-This project simulates a scenario where a turtleking catches and eliminates another turtle. By using ROS2 and turtlesim packages, fundamentals of ROS2 and basic control system are applied.
+This project simulates a scenario where a turtleking catches and eliminates another turtle. The turtleking also equipped with Artificial Potential Field algorithm to avoid a 'predator' as the obstacle.
 
 ## How to use
 1. make sure ROS2 is installed. In this project, I use ROS2 Jazzy
@@ -24,3 +24,6 @@ This project simulates a scenario where a turtleking catches and eliminates anot
 This project consist of 2 packages (excepting launch package)
 * turtle_controller: controls turtle king's behavior. Consist of simple PID controller, communication via topics, and service client to spawn and catch other turtles.
 * spawner : service server which provides ROS2 service to spawn and disappear catched turtles.
+
+## Issues and Next Work
+This project uses Artificial Potential Field (APF) as the obstacle avoidance algorithm which has several issues such as GNRON (Goal Non-Reachable with Obstacles Nearby). Next, the modified version of APF (Improved APF) will be added to solve this issue and adding detection factor to reduce turtle's pathlength when wider avoidance radius is applied.
