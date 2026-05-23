@@ -1,5 +1,9 @@
 # turtlesim_catcher
-https://github.com/user-attachments/assets/aba21bf9-43cf-443d-972d-3d4bed937697
+
+
+https://github.com/user-attachments/assets/0153e813-9aed-44d2-865f-3c65735fea00
+
+
 
 This project simulates a scenario where a turtleking catches and eliminates another turtle. The turtleking also equipped with Artificial Potential Field algorithm to avoid a 'predator' as the obstacle.
 
